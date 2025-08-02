@@ -214,12 +214,11 @@ def generate_html(prompt, theme_color, ui_library):
 </body>
 </html>"""
 
-    temp_dir = tempfile.gettempdir()
-    folder = os.path.join(temp_dir, "generated_website")
+    folder = os.path.join(os.getcwd(), "generated_website")
     os.makedirs(folder, exist_ok=True)
     html_path = os.path.join(folder, "index.html")
     jsx_path = os.path.join(folder, "index.jsx")
-    zip_path = os.path.join(temp_dir, "generated_website.zip")
+    zip_path = os.path.join(folder, "generated_website.zip")
 
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
