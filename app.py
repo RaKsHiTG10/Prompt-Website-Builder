@@ -3,12 +3,11 @@ import requests
 import re
 import os
 import zipfile
-import random
+import subprocess
+import tempfile
 from bs4 import BeautifulSoup
 from PIL import Image
 from io import BytesIO
-import subprocess
-import tempfile
 
 UNSPLASH_ACCESS_KEY = "SXnZu0z3lPzsLOdippu4LUtPk7Ip0-eN6I39MqHfWgo"
 
@@ -31,7 +30,7 @@ def fetch_text_from_wikipedia(prompt):
                 text += para
         clean_text = re.sub(r'\[\d+\]', '', text.strip())
         if clean_text and len(clean_text.split()) > 40:
-            return ". ".join(clean_text.split("."))[:3] + "."
+            return ". ".join(clean_text.split(".")[:3]) + "."
     except:
         return None
 
@@ -52,7 +51,15 @@ def generate_about_with_mistral(prompt):
 
 def smart_generate_about(prompt):
     wiki_text = fetch_text_from_wikipedia(prompt)
-    return wiki_text if wiki_text else generate_about_with_mistral(prompt)
+
+    if (
+        wiki_text
+        and len(wiki_text.split()) > 20
+        and not wiki_text.lower().strip().startswith(("may refer to", "cut.", "this article", "this message"))
+    ):
+        return wiki_text
+    else:
+        return generate_about_with_mistral(prompt)
 
 def fetch_unsplash_images(keyword, count=6):
     try:
@@ -75,6 +82,12 @@ def is_image_dark(img_url):
         return avg_brightness < 130
     except:
         return False
+
+def is_color_dark(hex_color):
+    hex_color = hex_color.lstrip('#')
+    r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    brightness = 0.299*r + 0.587*g + 0.114*b
+    return brightness < 150
 
 def title_case(text):
     return text.title()
@@ -120,11 +133,18 @@ def generate_html(prompt, theme_color, ui_library):
     description = smart_generate_about(prompt)
     images = fetch_unsplash_images(keyword)
     hero_url, _ = images[0]
-    dark = is_image_dark(hero_url)
 
-    text_color = "#fff" if dark or theme_color in ["#212121", "#0d1b2a", "#2c3e50"] else "#000"
-    border_color = text_color
-    shadow_color = "rgba(0,0,0,0.7)" if text_color == "#fff" else "rgba(255,255,255,0.5)"
+    # Analyze brightness
+    is_dark_theme = is_color_dark(theme_color)
+    is_dark_image = is_image_dark(hero_url)
+
+    # Set text color based on theme for body and gallery
+    body_text_color = "#fff" if is_dark_theme else "#000"
+    
+    # Set text color for hero based on image
+    hero_text_color = "#fff" if is_dark_image else "#000"
+    border_color = hero_text_color
+    shadow_color = "rgba(0,0,0,0.7)" if hero_text_color == "#fff" else "rgba(255,255,255,0.5)"
 
     extra_style = bootstrap_css
     if ui_library == "Material-UI":
@@ -140,18 +160,18 @@ def generate_html(prompt, theme_color, ui_library):
   <title>{title}</title>
   <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
   <style>
-    body {{ background-color: {theme_color}; color: {text_color}; }}
-    a {{ color: {text_color}; text-decoration: underline; }}
+    body {{ background-color: {theme_color}; color: {body_text_color}; }}
+    a {{ color: {body_text_color}; text-decoration: underline; }}
     .hero {{ position: relative; height: 400px; overflow: hidden; }}
     .hero img {{ width: 100%; height: 100%; object-fit: cover; }}
     .hero h1 {{
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       background: rgba(0, 0, 0, 0.4); padding: 20px;
-      color: {text_color}; border: 2px solid {border_color}; border-radius: 10px;
+      color: {hero_text_color}; border: 2px solid {border_color}; border-radius: 10px;
       text-shadow: 2px 2px 8px {shadow_color};
     }}
     .gallery-caption {{
-      font-weight: bold; text-align: center; margin-top: 5px; color: {text_color};
+      font-weight: bold; text-align: center; margin-top: 5px; color: {body_text_color};
     }}
     {extra_style}
   </style>
@@ -212,7 +232,7 @@ def generate_html(prompt, theme_color, ui_library):
     return html, zip_path
 
 with gr.Blocks() as demo:
-    gr.Markdown("##  Prompt-Based Website Builder")
+    gr.Markdown("## Prompt-Based Website Builder")
     with gr.Row():
         prompt_input = gr.Textbox(label="Describe your website", placeholder="e.g., A travel site on the Himalayas", lines=2)
         theme_color = gr.Dropdown(
@@ -225,12 +245,12 @@ with gr.Blocks() as demo:
                 ("Starry Night", "#0d1b2a")
             ],
             value="#fefefe",
-            label=" Theme Color"
+            label="Theme Color"
         )
         ui_library = gr.Dropdown(
             choices=["Bootstrap", "Material-UI", "Ant Design"],
             value="Bootstrap",
-            label=" UI Library"
+            label="UI Library"
         )
     generate_btn = gr.Button("Generate Website")
     status_output = gr.Textbox(label="Status", interactive=False)
@@ -238,10 +258,14 @@ with gr.Blocks() as demo:
     file_output = gr.File(label="⬇ Download HTML + JSX", visible=False)
 
     def generate_and_show(prompt, theme_color, ui_library):
-        status = "Generating website. Please wait..."
         html, file_path = generate_html(prompt, theme_color, ui_library)
-        return status, html, gr.update(value=file_path, visible=True)
+        return "", html, gr.update(value=file_path, visible=True)
 
-    generate_btn.click(fn=generate_and_show, inputs=[prompt_input, theme_color, ui_library], outputs=[status_output, html_output, file_output])
+    generate_btn.click(
+        fn=generate_and_show,
+        inputs=[prompt_input, theme_color, ui_library],
+        outputs=[status_output, html_output, file_output],
+        show_progress=True
+    )
 
     demo.launch(share=True, allowed_paths=[tempfile.gettempdir()])
