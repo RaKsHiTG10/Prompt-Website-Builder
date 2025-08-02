@@ -2,7 +2,7 @@
 
 This app generates a complete website based on a user's prompt using Gradio, Unsplash API, and Wikipedia or AI-generated content.
 
-## 🔧 Features
+## Features
 - Generates responsive HTML & JSX websites
 - Auto-populates images from Unsplash
 - About section from Wikipedia or local Mistral model
@@ -35,5 +35,6 @@ The app generates:
 - BeautifulSoup
 - Unsplash API
 - Ollama + Mistral
+
 
 
