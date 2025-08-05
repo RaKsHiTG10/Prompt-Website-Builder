@@ -21,7 +21,7 @@ This app generates a complete website based on a user's prompt using Gradio, Uns
    \\\
 
 ## GitHub Pages
-Live site (from last generated HTML): [Click here](https://7dbfb62630436f342d.gradio.live/)
+Live site (from last generated HTML): [Click here](https://eb01067a1e01e14b3d.gradio.live)
 
 ## Outputs
 The app generates:
@@ -35,6 +35,7 @@ The app generates:
 - BeautifulSoup
 - Unsplash API
 - Ollama + Mistral
+
 
 
 
